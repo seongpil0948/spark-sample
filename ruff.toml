@@ -1,0 +1,35 @@
+# Ruff configuration file
+# This file extends the configuration in pyproject.toml
+
+[lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[lint.flake8-bugbear]
+extend-immutable-calls = ["functools.lru_cache", "functools.cache"]
+
+[lint.pylint]
+max-args = 7
+max-branches = 15
+max-returns = 6
+max-statements = 50
+
+[lint.mccabe]
+max-complexity = 15
+
+[lint.flake8-quotes]
+docstring-quotes = "double"
+inline-quotes = "double"
+
+[lint.flake8-annotations]
+allow-star-arg-any = true
+suppress-dummy-args = true
+
+[lint.flake8-unused-arguments]
+ignore-variadic-names = true
+
+[lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+
+[lint.pyupgrade]
+keep-runtime-typing = true

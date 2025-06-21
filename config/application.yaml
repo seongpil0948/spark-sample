@@ -1,0 +1,224 @@
+# Spark Production Application Configuration
+
+spark:
+  app_name: "SparkProductionApp"
+  master: "local[*]"  # Override with SPARK_MASTER env var
+  version: "4.0.0"
+  
+  # Memory Configuration
+  driver:
+    memory: "4g"
+    maxResultSize: "2g"
+    cores: 2
+  
+  executor:
+    memory: "8g"
+    cores: 4
+    instances: 5
+    memoryOverhead: "1g"
+  
+  # Spark 4.0 Performance Settings
+  sql:
+    adaptive:
+      enabled: true
+      coalescePartitions:
+        enabled: true
+        minPartitionNum: 1
+        minPartitionSize: "1MB"
+      skewJoin:
+        enabled: true
+        skewedPartitionFactor: 5
+        skewedPartitionThresholdInBytes: "256MB"
+      optimizeSkewedJoin:
+        enabled: true
+      autoBroadcastJoinThreshold: "100MB"
+      advisoryPartitionSizeInBytes: "128MB"
+      localShuffleReader:
+        enabled: true
+    
+    shuffle:
+      partitions: 200
+    
+    autoBroadcastJoinThreshold: "100MB"
+    broadcastTimeout: 600
+    
+    # Spark 4.0 Columnar Processing
+    columnVector:
+      offheap:
+        enabled: true
+    inMemoryColumnarStorage:
+      compressed: true
+      batchSize: 10000
+    
+    # Enhanced execution
+    execution:
+      arrow:
+        pyspark:
+          enabled: true
+          fallback:
+            enabled: true
+        maxRecordsPerBatch: 10000
+  
+  # Serialization
+  serializer: "org.apache.spark.serializer.KryoSerializer"
+  kryoRegistrationRequired: false
+  kryoserializer:
+    buffer:
+      max: "1024m"
+  
+  # Delta Lake 4.0 Settings
+  delta:
+    enabled: true
+    autoCompact:
+      enabled: true
+    optimizeWrite:
+      enabled: true
+    retentionDurationCheck:
+      enabled: false
+    checkpointInterval: 10
+
+# Application Settings
+application:
+  environment: "development"  # development, staging, production
+  
+  # Data Paths
+  paths:
+    input:
+      base: "data/input"
+      training: "data/input/training"
+      streaming: "data/input/streaming"
+    
+    output:
+      base: "data/output"
+      etl: "data/output/etl"
+      streaming: "data/output/streaming"
+      models: "models"
+    
+    checkpoint: "checkpoint"
+    logs: "logs"
+  
+  # ETL Settings
+  etl:
+    batch_size: 10000
+    quality_check:
+      enabled: true
+      null_threshold: 0.1  # 10% nulls allowed
+      duplicate_threshold: 0.05  # 5% duplicates allowed
+    
+    partitioning:
+      columns: ["processed_date", "hour"]
+      num_partitions: 200
+  
+  # Streaming Settings
+  streaming:
+    kafka:
+      bootstrap_servers: "localhost:9092"
+      topics:
+        input: "events"
+        output: "processed_events"
+        predictions: "predictions"
+      
+      consumer:
+        group_id: "spark-streaming-group"
+        auto_offset_reset: "latest"
+        max_poll_records: 10000
+      
+      producer:
+        acks: "all"
+        retries: 3
+        batch_size: 16384
+    
+    window:
+      duration: "5 minutes"
+      slide: "1 minute"
+    
+    watermark: "10 minutes"
+    
+    trigger:
+      processing_time: "10 seconds"
+  
+  # ML Settings
+  ml:
+    models:
+      - name: "random_forest"
+        enabled: true
+        params:
+          numTrees: [50, 100, 200]
+          maxDepth: [5, 10, 15]
+          minInstancesPerNode: [1, 5, 10]
+      
+      - name: "gradient_boost"
+        enabled: true
+        params:
+          maxIter: [10, 20, 30]
+          maxDepth: [3, 5, 7]
+          stepSize: [0.01, 0.1, 0.5]
+      
+      - name: "logistic_regression"
+        enabled: true
+        params:
+          regParam: [0.01, 0.1, 1.0]
+          elasticNetParam: [0.0, 0.5, 1.0]
+          maxIter: [50, 100, 200]
+    
+    cross_validation:
+      num_folds: 3
+      parallelism: 4
+    
+    feature_selection:
+      num_features: 100
+      method: "chi_squared"  # chi_squared, mutual_info, variance_threshold
+  
+  # Monitoring
+  monitoring:
+    metrics:
+      enabled: true
+      prometheus_gateway: "http://localhost:9091"
+      push_interval: 30  # seconds
+    
+    logging:
+      level: "INFO"
+      format: "json"
+      
+    alerts:
+      high_value_threshold: 10000
+      error_rate_threshold: 0.05
+      latency_threshold: 300  # seconds
+
+# Environment-specific overrides
+environments:
+  production:
+    spark:
+      master: "yarn"
+      deploy_mode: "cluster"
+      executor:
+        instances: 20
+        memory: "16g"
+        cores: 8
+    
+    application:
+      paths:
+        input:
+          base: "s3a://prod-data/input"
+        output:
+          base: "s3a://prod-data/output"
+    
+    monitoring:
+      logging:
+        level: "WARN"
+  
+  staging:
+    spark:
+      master: "yarn"
+      deploy_mode: "client"
+      executor:
+        instances: 10
+        memory: "8g"
+        cores: 4
+    
+    application:
+      paths:
+        input:
+          base: "s3a://staging-data/input"
+        output:
+          base: "s3a://staging-data/output"

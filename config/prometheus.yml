@@ -1,0 +1,91 @@
+# Prometheus configuration for Spark monitoring
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'spark-production'
+    environment: 'development'
+
+# Alerting configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+# Load rules
+rule_files:
+  - "alerts/*.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # OpenTelemetry Collector metrics
+  - job_name: 'otel-collector'
+    static_configs:
+      - targets: ['otel-collector:8888']
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: '.*grpc_io.*'
+        action: drop
+
+  # Spark metrics via Pushgateway
+  - job_name: 'spark-metrics'
+    honor_labels: true
+    static_configs:
+      - targets: ['pushgateway:9091']
+        labels:
+          service: 'spark-app'
+
+  # Spark Master metrics
+  - job_name: 'spark-master'
+    metrics_path: '/metrics/master/prometheus'
+    static_configs:
+      - targets: ['spark-master:8080']
+        labels:
+          spark_role: 'master'
+
+  # Spark Workers metrics
+  - job_name: 'spark-workers'
+    metrics_path: '/metrics/prometheus'
+    static_configs:
+      - targets: ['spark-worker-1:8081', 'spark-worker-2:8082']
+        labels:
+          spark_role: 'worker'
+
+  # Node Exporter for host metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # Kafka metrics
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['kafka:9101']
+        labels:
+          service: 'kafka'
+
+  # Elasticsearch metrics
+  - job_name: 'elasticsearch'
+    metrics_path: '/_prometheus/metrics'
+    static_configs:
+      - targets: ['elasticsearch:9200']
+
+  # Custom application metrics
+  - job_name: 'spark-application'
+    metrics_path: '/metrics'
+    scheme: http
+    static_configs:
+      - targets: ['spark-master:4040']
+        labels:
+          app_name: 'spark-production-app'
+
+# Remote write configuration for long-term storage
+remote_write:
+  - url: "http://tempo:3200/api/v1/push"
+    send_exemplars: true
