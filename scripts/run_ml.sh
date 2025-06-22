@@ -7,9 +7,12 @@ export SPARK_HOME=${SPARK_HOME:-/opt/spark}
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 export PYSPARK_PYTHON=python3
 
-# Default values
-TRAINING_DATA=${1:-data/input/training}
-MODEL_PATH=${2:-models}
+# AWS Profile configuration
+export AWS_PROFILE=${AWS_PROFILE:-toy-root}
+
+# Default values - use S3A paths (Spark compatible)
+TRAINING_DATA=${1:-s3a://theshop-lake-dev/spark/input/training}
+MODEL_PATH=${2:-s3a://theshop-lake-dev/spark/output/models}
 MASTER=${SPARK_MASTER:-local[*]}
 
 echo "Starting ML Pipeline..."
@@ -17,8 +20,7 @@ echo "Training Data: $TRAINING_DATA"
 echo "Model Path: $MODEL_PATH"
 echo "Spark Master: $MASTER"
 
-# Create model directory if it doesn't exist
-mkdir -p $MODEL_PATH
+# Note: Model directory creation is handled by Spark when writing to S3
 
 # Run Spark submit
 spark-submit \

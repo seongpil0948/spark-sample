@@ -7,10 +7,18 @@ export SPARK_HOME=${SPARK_HOME:-/opt/spark}
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 export PYSPARK_PYTHON=python3
 
-# Default values
+# AWS Profile configuration
+export AWS_PROFILE=${AWS_PROFILE:-toy-root}
+
+# Setup AWS environment if not already set
+if [ -z "$AWS_ACCESS_KEY_ID" ] && [ -f "${HOME}/.aws/credentials" ]; then
+    source "$(dirname "$0")/setup_aws_env.sh"
+fi
+
+# Default values - use S3A paths (Spark compatible)
 DATE=${1:-$(date +%Y-%m-%d)}
-INPUT_PATH=${2:-data/input}
-OUTPUT_PATH=${3:-data/output}
+INPUT_PATH=${2:-s3a://theshop-lake-dev/spark/input/}
+OUTPUT_PATH=${3:-s3a://theshop-lake-dev/spark/output/}
 MASTER=${SPARK_MASTER:-local[*]}
 
 echo "Starting ETL Pipeline..."

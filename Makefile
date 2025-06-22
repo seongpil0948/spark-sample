@@ -72,11 +72,11 @@ docker-up: ## Start Spark cluster with Docker Compose
 docker-down: ## Stop Spark cluster
 	docker-compose down
 
-docker-full-up: ## Start full stack (Spark + Observability)
+docker-full-up: ## Start full stack (Spark + Kafka + Jupyter)
 	./scripts/start-full-stack.sh
 
 docker-full-down: ## Stop full stack
-	docker-compose -f docker-compose.full.yml down -v
+	docker-compose down -v
 
 docker-logs: ## Show Docker logs
 	docker-compose logs -f
@@ -97,8 +97,10 @@ clean-venv: ## Remove virtual environment
 
 clean-all: clean clean-venv ## Clean everything including virtual environment
 
-generate-data: ## Generate sample data
+gen-data: ## Generate sample data
 	$(UV) run python scripts/generate_sample_data.py
+gen-data-s3:
+	$(UV) run python scripts/generate_sample_data.py --s3
 
 create-topics: ## Create Kafka topics
 	docker exec kafka kafka-topics --create --topic events --partitions 3 --replication-factor 1 --bootstrap-server localhost:9092 || true

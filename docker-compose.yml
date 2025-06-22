@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # === Spark Services ===
   spark-master:
     build: .
     container_name: spark-master
@@ -10,6 +11,11 @@ services:
       - SPARK_MASTER_HOST=spark-master
       - SPARK_MASTER_PORT=7077
       - SPARK_MASTER_WEBUI_PORT=8080
+      # AWS Credentials
+      - AWS_PROFILE=${AWS_PROFILE:-toy-root}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
     ports:
       - "7077:7077"
       - "8080:8080"
@@ -18,6 +24,7 @@ services:
       - ./models:/app/models
       - ./logs:/app/logs
       - ./checkpoint:/app/checkpoint
+      - ~/.aws:/home/spark/.aws:ro  # Mount AWS credentials
     networks:
       - spark-network
 
@@ -31,6 +38,11 @@ services:
       - SPARK_WORKER_CORES=4
       - SPARK_WORKER_MEMORY=8g
       - SPARK_WORKER_WEBUI_PORT=8081
+      # AWS Credentials
+      - AWS_PROFILE=${AWS_PROFILE:-toy-root}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
     ports:
       - "8081:8081"
     depends_on:
@@ -38,6 +50,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./models:/app/models
+      - ~/.aws:/home/spark/.aws:ro  # Mount AWS credentials
     networks:
       - spark-network
 
@@ -51,6 +64,11 @@ services:
       - SPARK_WORKER_CORES=4
       - SPARK_WORKER_MEMORY=8g
       - SPARK_WORKER_WEBUI_PORT=8082
+      # AWS Credentials
+      - AWS_PROFILE=${AWS_PROFILE:-toy-root}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
     ports:
       - "8082:8082"
     depends_on:
@@ -58,9 +76,11 @@ services:
     volumes:
       - ./data:/app/data
       - ./models:/app/models
+      - ~/.aws:/home/spark/.aws:ro  # Mount AWS credentials
     networks:
       - spark-network
 
+  # === Data Infrastructure ===
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     container_name: kafka
@@ -88,38 +108,23 @@ services:
     networks:
       - spark-network
 
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-    networks:
-      - spark-network
-
-  pushgateway:
-    image: prom/pushgateway:latest
-    container_name: pushgateway
-    ports:
-      - "9091:9091"
-    networks:
-      - spark-network
-
+  # === Development Tools ===
   spark-history:
     build: .
     container_name: spark-history
     hostname: spark-history
     environment:
       - SPARK_HISTORY_OPTS=-Dspark.history.fs.logDirectory=/app/logs/spark-events
+      # AWS Credentials
+      - AWS_PROFILE=${AWS_PROFILE:-toy-root}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
     ports:
       - "18080:18080"
     volumes:
       - ./logs:/app/logs
+      - ~/.aws:/home/spark/.aws:ro  # Mount AWS credentials
     command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.history.HistoryServer"]
     networks:
       - spark-network
@@ -132,17 +137,21 @@ services:
     environment:
       - SPARK_MASTER=spark://spark-master:7077
       - JUPYTER_ENABLE_LAB=yes
+      # AWS Credentials
+      - AWS_PROFILE=${AWS_PROFILE:-toy-root}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
     volumes:
       - ./notebooks:/app/notebooks
       - ./data:/app/data
       - ./src:/app/src
-    command: ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token=''"]
+      - ~/.aws:/home/spark/.aws:ro  # Mount AWS credentials
+    command: ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token="]
+    working_dir: /app
     networks:
       - spark-network
 
 networks:
   spark-network:
     driver: bridge
-
-volumes:
-  prometheus_data:

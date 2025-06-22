@@ -2,6 +2,11 @@
 
 set -e
 
+# Setup AWS environment if credentials file exists
+if [ -f "/home/spark/.aws/credentials" ]; then
+    source /app/scripts/setup_aws_env.sh
+fi
+
 # Function to start Spark master
 start_master() {
     echo "Starting Spark Master..."

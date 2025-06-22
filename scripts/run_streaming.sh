@@ -7,11 +7,14 @@ export SPARK_HOME=${SPARK_HOME:-/opt/spark}
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 export PYSPARK_PYTHON=python3
 
-# Default values
+# AWS Profile configuration
+export AWS_PROFILE=${AWS_PROFILE:-toy-root}
+
+# Default values - use S3A paths for output and checkpoints (Spark compatible)
 KAFKA_SERVERS=${1:-localhost:9092}
 KAFKA_TOPIC=${2:-events}
-CHECKPOINT_PATH=${3:-checkpoint/streaming}
-OUTPUT_PATH=${4:-data/output/streaming}
+CHECKPOINT_PATH=${3:-s3a://theshop-lake-dev/spark/checkpoint/streaming}
+OUTPUT_PATH=${4:-s3a://theshop-lake-dev/spark/output/streaming}
 MASTER=${SPARK_MASTER:-local[*]}
 
 echo "Starting Streaming Pipeline..."
@@ -21,8 +24,7 @@ echo "Checkpoint Path: $CHECKPOINT_PATH"
 echo "Output Path: $OUTPUT_PATH"
 echo "Spark Master: $MASTER"
 
-# Create checkpoint directory if it doesn't exist
-mkdir -p $CHECKPOINT_PATH
+# Note: Checkpoint directory creation is handled by Spark when writing to S3
 
 # Run Spark submit
 spark-submit \

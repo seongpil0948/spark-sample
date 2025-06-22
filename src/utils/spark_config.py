@@ -71,10 +71,10 @@ def get_spark_config(mode: str = "batch") -> Dict[str, str]:
         "spark.databricks.delta.optimizeWrite.enabled": "true",
         "spark.databricks.delta.autoCompact.enabled": "true",
         # Monitoring
-        "spark.eventLog.enabled": os.getenv("SPARK_EVENTLOG_ENABLED", "true"),
-        "spark.eventLog.dir": os.getenv("SPARK_EVENTLOG_DIR", "/tmp/spark-events"),
+        "spark.eventLog.enabled": os.getenv("SPARK_EVENTLOG_ENABLED", "false"),
+        "spark.eventLog.dir": os.getenv("SPARK_EVENTLOG_DIR", "/app/logs/spark-events"),
         "spark.history.fs.logDirectory": os.getenv(
-            "SPARK_HISTORY_DIR", "/tmp/spark-events"
+            "SPARK_HISTORY_DIR", "/app/logs/spark-events"
         ),
         # Network settings
         "spark.network.timeout": "600s",
@@ -130,19 +130,64 @@ def get_spark_config(mode: str = "batch") -> Dict[str, str]:
         }
         config.update(k8s_config)
 
-    # S3 configuration if needed
+    # S3 configuration - support both environment variables and AWS profiles
+    aws_profile = os.getenv("AWS_PROFILE", "toy-root")
+    
+    # Base S3 configuration with both s3 and s3a schemes
+    base_s3_config = {
+        # Enable both s3 and s3a filesystems
+        "spark.hadoop.fs.s3a.impl": "org.apache.hadoop.fs.s3a.S3AFileSystem",
+        "spark.hadoop.fs.s3.impl": "org.apache.hadoop.fs.s3a.S3AFileSystem",
+        # Performance and reliability settings
+        "spark.hadoop.fs.s3a.fast.upload": "true",
+        "spark.hadoop.fs.s3a.multipart.size": "104857600",
+        "spark.hadoop.fs.s3a.connection.maximum": "100",
+        "spark.hadoop.fs.s3a.path.style.access": "false",
+        "spark.hadoop.fs.s3a.connection.ssl.enabled": "true",
+        "spark.hadoop.fs.s3a.attempts.maximum": "20",
+        "spark.hadoop.fs.s3a.connection.timeout": "200000",
+        "spark.hadoop.fs.s3a.retry.limit": "7",
+        "spark.hadoop.fs.s3a.retry.interval": "500ms",
+        # Performance optimizations for S3
+        "spark.hadoop.mapreduce.fileoutputcommitter.algorithm.version": "2",
+        "spark.speculation": "false",  # Disable speculation for S3 writes
+        # Block size optimization
+        "spark.hadoop.fs.s3a.block.size": "128M",
+        "spark.hadoop.fs.s3a.multipart.threshold": "64M",
+    }
+    
     if os.getenv("AWS_ACCESS_KEY_ID"):
+        # Use explicit credentials from environment variables
         s3_config = {
+            **base_s3_config,
             "spark.hadoop.fs.s3a.access.key": os.getenv("AWS_ACCESS_KEY_ID"),
             "spark.hadoop.fs.s3a.secret.key": os.getenv("AWS_SECRET_ACCESS_KEY"),
+            # "spark.hadoop.fs.s3a.session.token": os.getenv("AWS_SESSION_TOKEN", ""),
             "spark.hadoop.fs.s3a.endpoint": os.getenv(
                 "AWS_ENDPOINT", "s3.amazonaws.com"
             ),
-            "spark.hadoop.fs.s3a.impl": "org.apache.hadoop.fs.s3a.S3AFileSystem",
-            "spark.hadoop.fs.s3a.fast.upload": "true",
-            "spark.hadoop.fs.s3a.multipart.size": "104857600",
-            "spark.hadoop.fs.s3a.connection.maximum": "100",
         }
+        config.update(s3_config)  # type: ignore[arg-type]
+    elif aws_profile:
+        # Use AWS profile credentials with DefaultAWSCredentialsProviderChain
+        # This will check environment variables, system properties, and profile in order
+        s3_config = {
+            **base_s3_config,
+            "spark.hadoop.fs.s3a.aws.credentials.provider": "com.amazonaws.auth.DefaultAWSCredentialsProviderChain",
+            "spark.hadoop.fs.s3a.endpoint": os.getenv(
+                "AWS_ENDPOINT", "s3.ap-northeast-2.amazonaws.com"  # Seoul region endpoint
+            ),
+        }
+        # Pass AWS profile through Java system properties and environment
+        config["spark.driver.extraJavaOptions"] = config.get(
+            "spark.driver.extraJavaOptions", ""
+        ) + f" -Daws.profile={aws_profile} -Daws.region=ap-northeast-2"
+        config["spark.executor.extraJavaOptions"] = config.get(
+            "spark.executor.extraJavaOptions", ""
+        ) + f" -Daws.profile={aws_profile} -Daws.region=ap-northeast-2"
+        # Also set as Hadoop configuration
+        config[f"spark.hadoop.aws.profile"] = aws_profile
+        config[f"spark.hadoop.aws.region"] = "ap-northeast-2"
         config.update(s3_config)  # type: ignore[arg-type]
 
     return config
