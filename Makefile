@@ -66,19 +66,13 @@ run-all: ## Run all pipelines
 	$(UV) run spark-app --mode all
 
 # Docker targets
-docker-up: ## Start Spark cluster with Docker Compose
+up: ## Start Spark cluster with Docker Compose
 	docker-compose up -d
 
-docker-down: ## Stop Spark cluster
+down: ## Stop Spark cluster
 	docker-compose down
 
-docker-full-up: ## Start full stack (Spark + Kafka + Jupyter)
-	./scripts/start-full-stack.sh
-
-docker-full-down: ## Stop full stack
-	docker-compose down -v
-
-docker-logs: ## Show Docker logs
+logs: ## Show Docker logs
 	docker-compose logs -f
 
 # Utility targets
